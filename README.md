@@ -27,5 +27,14 @@ Repeat the previous learning session.
 `M-x review-missed`
 Start a session with the items you missed in the previous session.
 
+`M-x scramble-table`
+Scramble a learning table in an emacs buffer.
+
+`M-x slice-table`
+Replace a learning table in an emacs buffer with a subsection of it.
+
+`M-x filter-table-field-match`
+Filter out all the rows in a learning table in an emacs buffer whose given field does not match a given regular expression.
+
 `C-c C-r`
 Replay the last audio played.

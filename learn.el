@@ -35,6 +35,23 @@
 ;;   !better lisp input?? with default support??
 ;;   prompt-func should be a defaultable/againable value
 ;;   remove correct answer from scrambled answers so theres no dup
+;;   hide mp3 file name when playing one
+;;   undo ?!
+;;   stats ? ? tables and stuff
+;;   org mode integration?
+;;   emacs mode????
+;;   learn presets
+;;   html formatting/unformatting
+;;   dedicated buffer?????? instead of everything happen in mini
+;;   and!! auto magical romaji input allowed???
+;;   show /your/ answer in the results as well
+;;   make previous audio STOP before starting new audio
+;;   correct/incorrect OVERRIDING
+;;   saving sets of learning items!!!
+;;       either by filter, or like.. save ur missed ones
+;;   make the scramble function not stack overflow
+
+(require 'cl)
 
 (defvar *audio-player* "mplayer")
 (defvar *audio-directory* (expand-file-name "~/audio"))
@@ -240,7 +257,8 @@
 (defun correct? (source-answer input-answer)
   "Decide whether or not the user gave the right answer."
 					;(string= (downcase source-answer) (downcase input-answer)))
-  (string-match-p (regexp-quote input-answer) source-answer))
+  (and (string-match-p (regexp-quote input-answer) source-answer)
+       (> (length input-answer) 0)))
 
 (defun prompt-query (cue-items recall-items learning-items)
   (play-any-audio cue-items)
@@ -301,6 +319,9 @@
 				 recall-items)))
     correct))
 
+(defun get-vals (plist)
+  (if plist (cons (cadr plist) (get-vals (cddr plist)))))
+
 (defun get-props (plist)
   (if plist (cons (car plist) (get-props (cddr plist)))))
 
@@ -344,6 +365,11 @@
   (let ((exp (read)))
     (if (functionp exp) exp
       `(lambda (x) ,exp))))
+
+(defun learn-from-table-direct (table &optional cue-fields recall-fields)
+  "Same as learn-from-table but skip filtering and sorting"
+  (learn-from-table table cue-fields recall-fields
+		    (lambda (x) t) #'identity))
 
 (defun learn-from-table (table &optional cue-fields recall-fields
 			       filter-predicate sort-function)
@@ -395,7 +421,7 @@
 (defun learn-from-buffer (&rest rest)
   "Interactively initiate a learning session from a buffer."
   (interactive)
-  (apply #'learn-from-table
+  (apply #'learn-from-table-direct
 	 (append (list (load-learning-buffer))
 		 rest)))
 
@@ -405,3 +431,54 @@
   (apply #'learn-from-table
 	 (append (list (load-learning-file))
 		 rest)))
+
+(defun make-tsv-row (row)
+  (mapconcat (lambda (item) (format "%s" item))
+	     row "\t"))
+
+(defun make-tsv (table)
+  "Given a learning table, return a .tsv formatted string."
+  (concat "#" (make-tsv-row (get-table-fields table)) "\n"
+	  (mapconcat (lambda (row)
+		       (make-tsv-row (get-vals row)))
+		     table "\n")))
+
+;; later make it output same table format as input
+;; once more than just .tsv is supported that is
+(defun modify-table (transform-func)
+  "Perform some transformation function on a table in a buffer."
+  (setf (buffer-string)
+	(make-tsv (funcall
+		   transform-func
+		   (load-learning-buffer (current-buffer))))))
+
+(defun scramble-table ()
+  "Scramble the table in the current buffer."
+  (interactive)
+  (modify-table #'scramble))
+
+(defun slice-table ()
+  "Filter out a specified range of the table in the current buffer."
+  (interactive)
+  (modify-table (lambda (table)
+		  (subseq
+		   table
+		   (1- (read-number "First row: " 1))
+		   (read-number "Last row: " (length table))))))
+
+(defun filter-table-field-matches ()
+  "Filter rows whose given field matches a given regular expression."
+  (interactive)
+  (modify-table (lambda (table)
+		  (let ((field
+			 (make-keyword
+			  (car(read-options
+			       (get-table-fields table)
+			       "Match which field? "))))
+			(regex (read-regexp "Regexp match: ")))
+		    (remove-if-not
+		     (lambda (row)
+		       (string-match-p regex
+				       (format
+					"%s" (getf row field))))
+		     table)))))
