@@ -40,6 +40,13 @@
 (defvar *audio-directory* (expand-file-name "~/audio"))
 (global-set-key (kbd "C-c C-r") 'play-audio-again)
 
+;; i dont know what im doing
+(setq *last-table* nil)
+(setq *last-cue-fields* nil)
+(setq *last-recall-fields* nil)
+(setq *last-filter-predicate* nil)
+(setq *last-sort-function* nil)
+
 (defun make-audio-file-path (filename)
   (concat *audio-directory* "/" filename))
 
