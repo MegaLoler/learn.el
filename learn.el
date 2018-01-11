@@ -418,13 +418,15 @@
     (setq *last-recall-fields* recall-fields)
     (setq *last-filter-predicate* filter-predicate)
     (setq *last-sort-function* sort-function)
+    (setq *start-time* (float-time))
     (setq *missed*
 	  (drill (make-learning-items
 		  (funcall sort-function
 			   (remove-if-not filter-predicate table))
 		  cue-fields recall-fields)
 		 prompt-func)))
-  (message "Session complete!"))
+  (message (format "Session complete! (Time: %s seconds)"
+		   (- (float-time) *start-time*)))
 
 (defun review-missed ()
   "Drill the items you missed last session."
