@@ -50,12 +50,19 @@
 ;;   saving sets of learning items!!!
 ;;       either by filter, or like.. save ur missed ones
 ;;   make the scramble function not stack overflow
+;;   input system with builtin default answer handling
+;;   learning preset system
 
 (require 'cl)
 
-(defvar *audio-player* "mplayer")
-(defvar *audio-directory* (expand-file-name "~/audio"))
+(setq *audio-player* "mplayer")
+(setq *audio-directory* (expand-file-name "~/audio"))
 (global-set-key (kbd "C-c C-r") 'play-audio-again)
+(global-set-key (kbd "C-c C-l") 'learn-from-buffer)
+(global-set-key (kbd "C-c r") 'review-missed)
+(global-set-key (kbd "C-c a") 'learn-again)
+(global-set-key (kbd "C-c C-s") 'scramble-table)
+(global-set-key (kbd "C-c C-c") 'slice-table-chunk)
 
 ;; i dont know what im doing
 (setq *last-table* nil)
@@ -200,11 +207,17 @@
 			      buffer)))
     (if header (cdr table) table)))
 
+(defun read-buffer-or-current (prompt)
+  (let ((buffer (read-buffer prompt)))
+    (if (string= buffer "")
+	(current-buffer)
+      (buffer))))
+
 (defun load-learning-buffer (&optional buffer)
   "Interactively load a buffer to learn from and automatically detect buffer type by file extension."
   (let* ((buffer (get-buffer
 		  (or buffer
-		      (read-buffer "Learn from buffer: "))))
+		      (read-buffer-or-current "Learn from buffer: "))))
 	 (file-ext (downcase (or (file-name-extension
 				  (buffer-name buffer))
 				 ""))))
@@ -248,21 +261,31 @@
 	       (read-string "Invalid entry!")
 	       (read-mode prompt default))))))
 
+(defun format-cue-items-for-display (cue-items)
+  "Make cue items look presentable!"
+  (mapcar (lambda (item)
+	    (if (is-audio-file item)
+		"[audio]"
+	      item))
+	  cue-items))
+
 (defun prompt-flash (cue-items recall-items learning-items)
   (play-any-audio cue-items)
-  (read-string (format "%s" cue-items))
+  (read-string (format "%s"
+		       (format-cue-items-for-display cue-items)))
   (play-any-audio recall-items)
   (y-or-n-p (format "%s Correct? " recall-items)))
 
+;; i think there should be selectable versions of this test
 (defun correct? (source-answer input-answer)
   "Decide whether or not the user gave the right answer."
-					;(string= (downcase source-answer) (downcase input-answer)))
   (and (string-match-p (regexp-quote input-answer) source-answer)
        (> (length input-answer) 0)))
 
 (defun prompt-query (cue-items recall-items learning-items)
   (play-any-audio cue-items)
-  (let* ((answer (read-string (format "%s? Answer: " cue-items)))
+  (let* ((answer (read-string (format "%s? Answer: "
+				      (format-cue-items-for-display cue-items))))
 	 (corrects (mapcar (lambda (item)
 			     (cons item
 				   (if (correct? item answer)
@@ -305,7 +328,8 @@
 		     (1- choice-count))
 		    (list (car recall-items)))))
 	 (answer (read-options choices
-			       (format "%s? Answer" cue-items)
+			       (format "%s? Answer"
+				       (format-cue-items-for-display cue-items))
 			       (car choices)
 			       t t))
 	 (correct (equalp recall-items answer)))
@@ -457,14 +481,26 @@
   (interactive)
   (modify-table #'scramble))
 
-(defun slice-table ()
+(defun slice-table (&optional first last)
   "Filter out a specified range of the table in the current buffer."
   (interactive)
   (modify-table (lambda (table)
 		  (subseq
 		   table
-		   (1- (read-number "First row: " 1))
-		   (read-number "Last row: " (length table))))))
+		   (1- (or first
+			   (read-number "First row: " 1)))
+		   (or last
+		       (read-number "Last row: "
+				    (length table)))))))
+
+(defun slice-table-chunk ()
+  "Slice the nth m-sized chunk of the table."
+  (interactive)
+  (let* ((chunk-size (read-number "Chunk size: " 10))
+	 (n (1- (read-number "Chunk index (1+): " 1)))
+	 (start-index (* chunk-size n))
+	 (last (+ start-index chunk-size)))
+    (slice-table (1+ start-index) last)))
 
 (defun filter-table-field-matches ()
   "Filter rows whose given field matches a given regular expression."
