@@ -187,6 +187,7 @@
 			   。 ""
 			   ！ ""
 			   ？ ""
+			   、 ""
 			   っ "'"))
 
 (defun strip-html (string)
@@ -546,13 +547,21 @@
 	    (read-options fields prompt-name
 			  (mapcar #'keyword-name default)))))
 
-;; make the input here multi-value support
-;; basically, if u enter a list instead, accept all the vals
+(defun all-elems-in-list (elems ls)
+  "Whether all items in elems is a member of ls."
+  (let ((result t))
+    (dolist (el elems)
+      (if (not (member el ls))
+	  (setq result nil)))
+    result))
+
 (defun read-options (fields prompt-name &optional
 			    default quote numbers)
-  (let* ((default (or (if (and default (listp default)
-			       (= (length default) 1))
-			  (car default)
+  "Read in a comma separated list of options from a given list."
+  (let* ((default (or (if (and default (listp default))
+			  (if (= (length default) 1)
+			      (car default)
+			    (mapconcat #'identity default ","))
 			default)
 		      (car fields)))
 	 (prompt (format "%s %s (Default: %s): "
@@ -563,11 +572,13 @@
 				     fields)
 			   fields)
 			 default))
-	 (answer (read-string prompt nil nil default)))
-    (if (member answer fields) (list answer)
+	 (answer (split-string
+		  (read-string prompt nil nil default)
+		  ",")))
+    (if (all-elems-in-list answer fields) answer
       (progn
 	(read-string "Invalid entry!")
-	(read-options fields prompt-name)))))
+	(read-options fields prompt-name default quote numbers)))))
 
 (defun read-func (prompt)
   (read-string prompt)
@@ -622,7 +633,7 @@
 (defun review-missed ()
   "Drill the items you missed last session."
   (interactive)
-  (setq *missed* (drill *missed* (read-mode)))
+  (setq *missed* (drill *missed* (read-mode nil *last-mode*)))
   (message "Review complete!"))
 
 (defun learn-again (&optional table mode cue-fields recall-fields
