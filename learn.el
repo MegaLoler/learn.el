@@ -67,6 +67,7 @@
 (global-set-key (kbd "C-c C-c") 'slice-table-chunk)
 
 ;; i dont know what im doing
+(setq *last-mode* nil)
 (setq *last-table* nil)
 (setq *last-cue-fields* nil)
 (setq *last-recall-fields* nil)
@@ -74,77 +75,8 @@
 (setq *last-sort-function* nil)
 
 ;; stuff to convert hiragana to romaji
-(setq hiragana-romaji '("あ" "a"
-			   "い" "i"
-			   "う" "u"
-			   "え" "e"
-			   "お" "o"
-			   "か" "ka"
-			   き ki
-			   く ku
-			   け ke
-			   こ ko
-			   さ sa
-			   し shi
-			   す su
-			   せ se
-			   そ so
-			   た ta
-			   ち chi
-			   つ tsu
-			   て te
-			   と to
-			   な na
-			   に ni
-			   ぬ nu
-			   ね ne
-			   の no
-			   ま ma
-			   み mi
-			   む mu
-			   め me
-			   も mo
-			   は ha
-			   ひ hi
-			   ふ fu
-			   へ he
-			   ほ ho
-			   や ya
-			   ゆ yu
-			   よ yo
-			   ら ra
-			   り ri
-			   る ru
-			   れ re
-			   ろ ro
-			   わ wa
-			   を wo
-			   ん n
-			   が ga
-			   ぎ gi
-			   ぐ gu
-			   げ ge
-			   ご go
-			   ざ za
-			   じ ji
-			   ず zu
-			   ぜ ze
-			   ぞ zo
-			   だ da
-			   ぢ ji
-			   づ dzu
-			   で de
-			   ど do
-			   ば ba
-			   び bi
-			   ぶ bu
-			   べ be
-			   ぼ bo
-			   ぱ pa
-			   ぴ pi
-			   ぷ pu
-			   ぺ pe
-			   ぽ po
+;; this is a mess
+(setq hiragana-romaji '(
 			   きゃ kya
 			   きゅ kyu
 			   きょ kyo
@@ -175,6 +107,80 @@
 			   ぴゃ pya
 			   ぴゅ pyu
 			   ぴょ pyo
+			   "あ" "a"
+			   "い" "i"
+			   "う" "u"
+			   "え" "e"
+			   "お" "o"
+			   "か" "ka"
+			   き ki
+			   く ku
+			   け ke
+			   こ ko
+			   さ sa
+			   し shi
+			   す su
+			   せ se
+			   そ so
+			   た ta
+			   ち chi
+			   つ tsu
+			   て te
+			   と to
+			   な na
+			   に ni
+			   ぬ nu
+			   ね ne
+			   の no
+			   ま ma
+			   み mi
+			   む mu
+			   め me
+			   も mo
+			   は wa
+			   ha wa
+			   ひ hi
+			   ふ fu
+			   へ e
+			   he e
+			   ほ ho
+			   や ya
+			   ゆ yu
+			   よ yo
+			   ら ra
+			   り ri
+			   る ru
+			   れ re
+			   ろ ro
+			   わ wa
+			   を o
+			   wo o
+			   ん n
+			   が ga
+			   ぎ gi
+			   ぐ gu
+			   げ ge
+			   ご go
+			   ざ za
+			   じ ji
+			   ず zu
+			   ぜ ze
+			   ぞ zo
+			   だ da
+			   ぢ ji
+			   づ dzu
+			   で de
+			   ど do
+			   ば ba
+			   び bi
+			   ぶ bu
+			   べ be
+			   ぼ bo
+			   ぱ pa
+			   ぴ pi
+			   ぷ pu
+			   ぺ pe
+			   ぽ po
 			   ;。 "."
 			   ;！ "!"
 			   ;？ "?"
@@ -186,31 +192,24 @@
 (defun strip-html (string)
   (replace-regexp-in-string "<[^>]*>" "" string))
 
-(defun transcode (string conversion-scheme &optional reverse)
+(defun transcode (string conversion-scheme)
   "Convert sequences in string according to a plist."
   (dolist (key (get-props conversion-scheme))
     (let ((source (format "%s" key))
 	  (destin (format "%s" (getf conversion-scheme key))))
       (setq string
-	    (replace-regexp-in-string (if reverse
-					  destin
-					source)
-				      (if reverse
-					  source
-					destin)
-				      string))))
+	    (replace-regexp-in-string source destin string))))
   string)
 
 (defun romanify (string)
-  (transcode (strip-html string) (reverse hiragana-romaji) t))
+  (transcode (strip-html string) hiragana-romaji))
 
 (defun romanify-no-spaces (string)
-  (transcode string
-	     (reverse (append hiragana-romaji (list " " ""))) t))
+  (transcode string (append hiragana-romaji (list " " ""))))
 
 (defun romanify-no-spaces-or-html (string)
   (transcode (strip-html string)
-	     (reverse (append hiragana-romaji (list " " ""))) t))
+	     (append hiragana-romaji (list " " ""))))
 
 (defun make-audio-file-path (filename)
   (concat *audio-directory* "/" filename))
@@ -410,7 +409,7 @@
   (mapcar (lambda (item)
 	    (if (is-audio-file item)
 		"[audio]"
-	      item))
+	      (strip-html item)))
 	  cue-items))
 
 (defun make-progress-string (n len)
@@ -446,17 +445,21 @@
   (let* ((answer (read-string (format "\n%s%s? Answer: "
 				      (make-progress-string n len)
 				      (format-cue-items-for-display cue-items))))
+	 (good nil)
 	 (corrects
 	  (mapcar
 	   (lambda (item)
-	     (format "\nAnswer: %s\nYou:    %s\n%s\n" item answer 
+	     (format "\nAnswer: %s\nYou:    %s\n%s\n"
+		     (strip-html item) answer 
 		     (if (correct? item answer)
-			 "CORRECT!"
+			 (progn
+			   (setq good t)
+			   "CORRECT!")
 		       "INCORRECT!")))
 	   recall-items)))
     (play-any-audio recall-items)
     (read-string (format "%s" corrects))
-    (member 'correct (mapcar #'cdr corrects))))
+    good))
 
 ;;(defun remove-nth-element (nth list)
 ;;  (cond
@@ -572,15 +575,20 @@
     (if (functionp exp) exp
       `(lambda (x) ,exp))))
 
-(defun learn-from-table-direct (table &optional cue-fields recall-fields)
+(defun learn-from-table-direct (table &optional mode cue-fields recall-fields)
   "Same as learn-from-table but skip filtering and sorting"
-  (learn-from-table table cue-fields recall-fields
+  (learn-from-table table mode cue-fields recall-fields
 		    (lambda (x) t) #'identity))
 
-(defun learn-from-table (table &optional cue-fields recall-fields
+(defun get-mode-name (func-name)
+  (cond ((string= func-name "prompt-flash") "flash")
+	((string= func-name "prompt-query") "query")
+	((string= func-name "prompt-multi") "multi")))
+
+(defun learn-from-table (table &optional mode cue-fields recall-fields
 			       filter-predicate sort-function)
   "Interactively initiate a learning session from a learning table."
-  (let ((prompt-func (read-mode))
+  (let ((prompt-func (or mode (read-mode nil *last-mode*)))
 	(cue-fields
 	 (or cue-fields
 	     (read-cue-recall-fields table "Cue"
@@ -595,6 +603,7 @@
 	(sort-function
 	 (or sort-function
 	     (read-func "Prepare to input sort function! (\"identity\" for unchanged, \"scramble\" for random)"))))
+    (setq *last-mode* (get-mode-name (format "%s" prompt-func)))
     (setq *last-table* table)
     (setq *last-cue-fields* cue-fields)
     (setq *last-recall-fields* recall-fields)
@@ -616,11 +625,12 @@
   (setq *missed* (drill *missed* (read-mode)))
   (message "Review complete!"))
 
-(defun learn-again (&optional table cue-fields recall-fields
+(defun learn-again (&optional table mode cue-fields recall-fields
 			      filter-predicate sort-function)
   (interactive)
   "Repeat the last learning session with optional modifications."
-  (learn-from-table (or table *last-table*)
+  (learn-from-table (or mode *last-mode*)
+		    (or table *last-table*)
 		    (or cue-fields *last-cue-fields*)
 		    (or recall-fields *last-recall-fields*)
 		    (or filter-predicate *last-filter-predicate*)
