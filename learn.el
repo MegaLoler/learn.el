@@ -76,6 +76,7 @@
 
 ;; stuff to convert hiragana to romaji
 ;; this is a mess
+;; this isnt at all how it should be, i just wanted a super quick solution so i could use it  @_@
 (setq hiragana-romaji '(
 			   きゃ kya
 			   きゅ kyu
@@ -86,6 +87,12 @@
 			   ちゃ cha
 			   ちゅ chu
 			   ちょ cho
+			   にゃ nya
+			   にゅ nyu
+			   にょ nyo
+			   みゃ mya
+			   みゅ myu
+			   みょ myo
 			   ひゃ hya
 			   ひゅ hyu
 			   ひょ hyo
@@ -181,6 +188,11 @@
 			   ぷ pu
 			   ぺ pe
 			   ぽ po
+			   "aー" aa
+			   "iー" ii
+			   "uー" uu
+			   "eー" ee
+			   "oー" oo
 			   ;。 "."
 			   ;！ "!"
 			   ;？ "?"
@@ -188,6 +200,18 @@
 			   ！ ""
 			   ？ ""
 			   、 ""
+			   "," ""
+			   "\"" ""
+			   "kk" "'k"
+			   "ss" "'s"
+			   "tt" "'t"
+			   "pp" "'p"
+			   "tch" "'ch"
+			   "nn" "n"
+			   "mb" "nb"
+			   "mp" "np"
+			   」 ""
+			   「 ""
 			   っ "'"))
 
 (defun strip-html (string)
@@ -215,14 +239,18 @@
 (defun make-audio-file-path (filename)
   (concat *audio-directory* "/" filename))
 
+(defun clean-filename (filename)
+  (car (split-string filename "?")))
+
 (defun is-audio-file (filename)
-  (file-exists-p (make-audio-file-path filename)))
+  (file-exists-p (make-audio-file-path (clean-filename filename))))
 
 (defun play-audio-file (filename)
   (setq *last-audio-filename* filename)
   (make-process :name "*audio*"
 		:command (list *audio-player*
-			       (make-audio-file-path filename))))
+			       (make-audio-file-path
+				(clean-filename filename)))))
 
 (defun play-audio-again ()
   (interactive)
